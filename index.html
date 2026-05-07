@@ -1,13 +1,450 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order Lookup</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00d2ff;
+            --secondary: #9d50bb;
+            --bg-dark: #0f172a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- BACKGROUND SYSTEM --- */
+        #liquid-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            transition: background 2s ease-in-out;
+            background-size: cover;
+            background-position: center;
+        }
+
+        #liquid-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55); /* Darkening layer for legibility */
+            backdrop-filter: saturate(1.2);
+            z-index: 1;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            mix-blend-mode: screen;
+            z-index: 0;
+            transition: background 2s ease;
+        }
+
+        @keyframes move {
+            0%, 100% { transform: translate(-10%, -10%) scale(1); }
+            50% { transform: translate(15%, 15%) scale(1.15); }
+        }
+
+        .animate-blob {
+            animation: move 20s infinite alternate ease-in-out;
+        }
+
+        /* --- GLASS CONTAINER --- */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(40px) saturate(200%);
+            -webkit-backdrop-filter: blur(40px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            width: 100%;
+            max-width: 440px;
+            padding: 40px;
+            border-radius: 32px;
+            position: relative;
+            z-index: 10;
+            margin: 20px;
+            transform: translateY(20px);
+            opacity: 0;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+
+        .title-gradient {
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(to right, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            margin-top: 12px;
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+        }
+
+        /* --- INPUTS & BUTTONS --- */
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 18px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+        input:focus {
+            background: rgba(0, 0, 0, 0.7);
+            border-color: var(--primary);
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+        }
+
+        input.error {
+            border-color: #ff4b2b;
+            animation: shake 0.4s ease;
+        }
+
+        input.valid { border-color: #4ade80; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        #error-msg {
+            color: #ff4b2b;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 8px;
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button {
+            width: 100%;
+            padding: 20px;
+            border-radius: 18px;
+            border: none;
+            color: white;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 40px -10px rgba(0, 210, 255, 0.5);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        button:active { transform: scale(0.98); }
+
+        /* --- HISTORY --- */
+        .history-section {
+            margin-top: 48px;
+        }
+
+        .history-section h4 {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: 16px;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+        }
+
+        .history-item span:first-child {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .history-item span:last-child {
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- DECORATION & OVERLAYS --- */
+        .overlay-text {
+            position: fixed;
+            bottom: 32px;
+            left: 32px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .overlay-text div:first-child {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .overlay-text div:last-child {
+            font-size: 9px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .logo-placeholder {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.15);
+            letter-spacing: 1px;
+            visibility: hidden;
+        }
+
+        @media (min-width: 1024px) {
+            .logo-placeholder { visibility: visible; }
+        }
+
+        /* --- SVG ICONS --- */
+        .icon { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+</head>
+<body>
+
+    <div id="liquid-bg">
+        <div id="blob1" class="blob animate-blob" style="width: 800px; height: 800px; top: -200px; left: -200px;"></div>
+        <div id="blob2" class="blob animate-blob" style="width: 700px; height: 700px; bottom: -200px; right: -200px; animation-delay: -5s;"></div>
+    </div>
+
+    <div class="logo-placeholder">HOVER</div>
+
+    <div class="glass-card">
+        <header>
+            <div>
+                <h1 class="title-gradient">Order Lookup</h1>
+                <p style="color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Secure Order Vault</p>
+            </div>
+            <div class="status-dot"></div>
+        </header>
+
+        <div class="input-wrapper">
+            <input type="text" id="orderInput" placeholder="Order Number (e.g. 55012)" autocomplete="off">
+            <div id="error-msg">
+                <svg class="icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Invalid Order Format</span>
+            </div>
+        </div>
+
+        <button id="searchBtn">
+            <span>Initiate Lookup</span>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+
+        <div id="history-container" class="history-section" style="display: none;">
+            <h4>Recent History</h4>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div class="overlay-text">
+        <div>Phase Status</div>
+        <div>ENCRYPTION ACTIVE v4.2.1 • VANILLA ENGINE</div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const BACKGROUNDS = [
+            {
+                bg1: '#0f172a', bg2: '#1e293b',
+                primary: '#00d2ff', secondary: '#9d50bb',
+                image: 'https://images.pexels.com/photos/27085003/pexels-photo-27085003.jpeg?_gl=1*1ikeyvi*_ga*MTQ3MTA3MzE4NC4xNzc4MTI5MDQ0*_ga_8JE65Q40S6*czE3NzgxMjkwNDQkbzEkZzEkdDE3NzgxMjkwOTckajckbDAkaDA.'
+            },
+            {
+                bg1: '#1a1a2e', bg2: '#16213e',
+                primary: '#e94560', secondary: '#0f3460',
+                image: 'https://images.pexels.com/photos/4626277/pexels-photo-4626277.jpeg?_gl=1*4le2qg*_ga*MTQ3MTA3MzE4NC4xNzc4MTI5MDQ0*_ga_8JE65Q40S6*czE3NzgxMjkwNDQkbzEkZzEkdDE3NzgxMjk0NjIkajQxJGwwJGgw'
+            },
+            {
+                bg1: '#070b0d', bg2: '#1a2a2f',
+                primary: '#00ffa3', secondary: '#00a8ff',
+                image: 'https://images.pexels.com/photos/13729358/pexels-photo-13729358.png?_gl=1*1d5jl2h*_ga*MTQ3MTA3MzE4NC4xNzc4MTI5MDQ0*_ga_8JE65Q40S6*czE3NzgxMjkwNDQkbzEkZzEkdDE3NzgxMjk1MDUkajU5JGwwJGgw'
+            }
+        ];
+
+        let bgIndex = 0;
+        let history = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+
+        // --- ELEMENTS ---
+        const input = document.getElementById('orderInput');
+        const btn = document.getElementById('searchBtn');
+        const errorMsg = document.getElementById('error-msg');
+        const historyContainer = document.getElementById('history-container');
+        const historyList = document.getElementById('history-list');
+        const mainBg = document.getElementById('liquid-bg');
+        const blob1 = document.getElementById('blob1');
+        const blob2 = document.getElementById('blob2');
+
+        // --- LOGIC ---
+        function updateBackground() {
+            const current = BACKGROUNDS[bgIndex];
+            
+            // Set main background
+            if (current.image) {
+                mainBg.style.backgroundImage = `url(${current.image})`;
+            } else {
+                mainBg.style.backgroundImage = `linear-gradient(135deg, ${current.bg1}, ${current.bg2})`;
+            }
+
+            // Set blobs
+            blob1.style.background = `radial-gradient(circle, ${current.primary}26 0%, ${current.secondary}26 100%)`;
+            blob2.style.background = `radial-gradient(circle, ${current.secondary}26 0%, ${current.primary}26 100%)`;
+
+            // Update accent variables
+            document.documentElement.style.setProperty('--primary', current.primary);
+            document.documentElement.style.setProperty('--secondary', current.secondary);
+        }
+
+        function handleSearch(directValue) {
+            const val = directValue || input.value.trim();
+            
+            // Reset
+            input.classList.remove('error', 'valid');
+            errorMsg.style.display = 'none';
+
+            if (!/^\d+$/.test(val)) {
+                input.classList.add('error');
+                errorMsg.style.display = 'flex';
+                setTimeout(() => input.classList.remove('error'), 400);
+                return;
+            }
+
+            // Success
+            input.classList.add('valid');
+            window.open(`https://manowar.hover.to/orders/${val}`, "_blank");
+
+            // Save to History
+            if (!history.find(h => h.number === val)) {
+                history.unshift({ number: val, time: 'Just now' });
+                history = history.slice(0, 5);
+                localStorage.setItem('orderHistory', JSON.stringify(history));
+                renderHistory();
+            }
+
+            input.value = '';
+            setTimeout(() => input.classList.remove('valid'), 2000);
+        }
+
+        function renderHistory() {
+            if (history.length === 0) {
+                historyContainer.style.display = 'none';
+                return;
+            }
+
+            historyContainer.style.display = 'block';
+            historyList.innerHTML = '';
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span>#${item.number}</span><span>${item.time}</span>`;
+                div.onclick = () => handleSearch(item.number);
+                historyList.appendChild(div);
+            });
+        }
+
+        // --- INIT ---
+        updateBackground();
+        renderHistory();
+
+        // 75s Background rotation
+        setInterval(() => {
+            bgIndex = (bgIndex + 1) % BACKGROUNDS.length;
+            updateBackground();
+        }, 75000);
+
+        // Listeners
+        btn.onclick = () => handleSearch();
+        input.onkeydown = (e) => (e.key === 'Enter' && handleSearch());
+    </script>
+</body>
 </html>
 
